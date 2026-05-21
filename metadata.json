@@ -1,0 +1,6 @@
+{
+  "name": "AI 數據分析與洞察工具",
+  "description": "一個功能強大的 AI 數據分析工具。只需貼上 CSV 報表資料，即可在數秒內生成包含統計、趨勢分析與商業洞察的繁體中文報告，支援即時表格與 Markdown 渲染一鍵複製。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

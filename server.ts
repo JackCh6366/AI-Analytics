@@ -1,0 +1,107 @@
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI } from "@google/genai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+  // 初始化 Gemini Client
+  const apiKey = process.env.GEMINI_API_KEY;
+  const ai = new GoogleGenAI({
+    apiKey: apiKey,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
+    },
+  });
+
+  // 設計 System Instructions 常數，規範 AI 分析行為與繁體中文輸出
+  const DEFAULT_SYSTEM_INSTRUCTION = `
+你是一位專業的資料分析師。
+你的任務是接收一段 CSV 或表格結構的原始數據，理解其欄位意義，並提出精確的摘要報告與洞察。
+
+請務必嚴格遵循以下 Markdown 輸出格式：
+
+### 1. 📊 資料概況與欄位理解
+簡要說明這份資料的主題是什麼，並列出關鍵欄位的意義。
+
+### 2. ⚠️ 異常與缺值檢查
+檢查資料中是否有空白（例如缺少數量或金額）、極端值（例如不合理的高價），並將發現的異常項目條列出來。若無異常，說明「未發現明顯異常」。
+
+### 3. 📈 統計與趨勢洞察
+請回答以下問題的總結：
+- **總計概況**：銷售數量或總金額的大概加總。
+- **分類表現**：哪個業務員或哪項產品表現最好？
+- **業務建議**：從數據中給出 1-2 個可以執行的商業建議。
+
+請以 Markdown 格式輸出，所有繁體中文部分必須使用**繁體中文**回覆，不要包含任何額外的問候語或結語。
+`;
+
+  // API 路由：處理 AI 分析數據
+  app.post("/api/analyze", async (req, res) => {
+    try {
+      const { csvData, customInstruction } = req.body;
+
+      if (!csvData || csvData.trim() === "") {
+        return res.status(400).json({ error: "CSV 資料不可為空。" });
+      }
+
+      if (!apiKey) {
+        return res.status(500).json({
+          error: "未偵測到 GEMINI_API_KEY。請前往 Settings > Secrets 設定您的 API 密鑰。",
+        });
+      }
+
+      // 結合自訂提示詞（如果有的話）
+      const systemInstruction = customInstruction && customInstruction.trim() !== ""
+        ? `${DEFAULT_SYSTEM_INSTRUCTION}\n\n額外指定分析重點與限制：\n${customInstruction}`
+        : DEFAULT_SYSTEM_INSTRUCTION;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: `以下是需要分析的 CSV 數據資料：\n\n\`\`\`csv\n${csvData}\n\`\`\`\n\n請根據 System Instruction 提供深入、美觀且有條理的繁體中文分析與洞察報告。`,
+        config: {
+          systemInstruction: systemInstruction,
+          temperature: 0.25, // 低溫保持邏輯穩定
+        },
+      });
+
+      res.json({ result: response.text });
+    } catch (error: any) {
+      console.error("Gemini API Error:", error);
+      res.status(500).json({
+        error: error.message || "AI 分析過程中發生未知錯誤，請重試或檢查您的 API 金鑰設定。",
+      });
+    }
+  });
+
+  // 靜態資源 / Vite Middleware
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server is running at http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer();
