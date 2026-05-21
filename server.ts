@@ -15,14 +15,7 @@ async function startServer() {
 
   // 初始化 Gemini Client
   const apiKey = process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
+  const ai = new GoogleGenAI({ apiKey });
 
   // 設計 System Instructions 常數，規範 AI 分析行為與繁體中文輸出
   const DEFAULT_SYSTEM_INSTRUCTION = `
@@ -57,7 +50,7 @@ async function startServer() {
 
       if (!apiKey) {
         return res.status(500).json({
-          error: "未偵測到 GEMINI_API_KEY。請前往 Settings > Secrets 設定您的 API 密鑰。",
+          error: "未偵測到 GEMINI_API_KEY。請在專案根目錄的 .env 檔案中設定您的 GEMINI_API_KEY。",
         });
       }
 
