@@ -1,8 +1,10 @@
 import { Handler } from "@netlify/functions";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local"), quiet: true });
+dotenv.config({ quiet: true });
 
 const DEFAULT_SYSTEM_INSTRUCTION = `
 你是一位專業的資料分析師。
